@@ -24,11 +24,18 @@ message_id = None
 def get_status():
     try:
         server = JavaServer.lookup(SERVER_IP)
+
+        # Test rapide : le serveur répond-il au ping ?
+        latency = server.ping()
+
+        # Si le ping passe, on peut demander le status
         status = server.status()
         return True, status.players.online, status.players.max
+
     except Exception as e:
         print("Erreur get_status :", e)
         return False, 0, 0
+
 
 
 @bot.event
@@ -37,7 +44,7 @@ async def on_ready():
     update_status.start()
 
 
-@tasks.loop(seconds=200)
+@tasks.loop(seconds=240)
 async def update_status():
     global message_id
 
