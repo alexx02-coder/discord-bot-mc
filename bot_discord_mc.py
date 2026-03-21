@@ -2,6 +2,7 @@ from keep_alive import keep_alive
 import discord
 from discord.ext import commands, tasks
 from mcstatus import JavaServer
+from discord import app_commands
 import os
 
 keep_alive()
@@ -17,18 +18,20 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree  # Pour les slash commands
 
 message_id = None
+last_state = None  # Pour les alertes
 
 
 def get_status():
     try:
         server = JavaServer.lookup(SERVER_IP)
 
-        # Test rapide : le serveur répond-il au ping ?
+        # Test rapide : ping
         latency = server.ping()
 
-        # Si le ping passe, on peut demander le status
+        # Status complet
         status = server.status()
         return True, status.players.online, status.players.max
 
@@ -37,18 +40,18 @@ def get_status():
         return False, 0, 0
 
 
-
 @bot.event
 async def on_ready():
     print(f"Connecté en tant que {bot.user}")
+    await tree.sync()
+    print("Slash commands synchronisées")
     update_status.start()
 
 
 @tasks.loop(seconds=240)
 async def update_status():
-    global message_id
+    global message_id, last_state
 
-    # Vérifier que le salon est accessible
     channel = bot.get_channel(CHANNEL_ID)
     if channel is None:
         print("Salon introuvable, nouvelle tentative dans 200s…")
@@ -61,7 +64,18 @@ async def update_status():
     else:
         content = "🔴 Serveur hors ligne"
 
-    # Si aucun message n'est enregistré → on en crée un
+    # 🔔 Détection changement d'état
+    if last_state is None:
+        last_state = online
+    else:
+        if online != last_state:
+            if online:
+                await channel.send("🟢 **Le serveur vient de s'allumer !**")
+            else:
+                await channel.send("🔴 **Le serveur vient de s'éteindre !**")
+            last_state = online
+
+    # Gestion du message principal
     if message_id is None:
         try:
             msg = await channel.send(content)
@@ -71,13 +85,11 @@ async def update_status():
             print("Erreur lors de l'envoi du message :", e)
         return
 
-    # Sinon on essaie de modifier le message existant
     try:
         msg = await channel.fetch_message(message_id)
         await msg.edit(content=content)
         print("Message mis à jour")
     except discord.NotFound:
-        # Le message n'existe plus → on en recrée un
         print("Message introuvable, recréation…")
         msg = await channel.send(content)
         message_id = msg.id
@@ -85,16 +97,35 @@ async def update_status():
         print("Erreur update_status :", e)
 
 
-@bot.command()
-async def joueurs(ctx):
+# ============================
+#     SLASH COMMANDS
+# ============================
+
+@tree.command(name="serveur", description="Affiche l'état du serveur Minecraft")
+async def serveur(interaction: discord.Interaction):
     online, players, max_players = get_status()
 
     if online:
-        await ctx.send(f"👥 {players}/{max_players} joueurs")
+        await interaction.response.send_message(
+            f"🟢 Serveur en ligne\n👥 {players}/{max_players} joueurs"
+        )
     else:
-        await ctx.send("🔴 Serveur hors ligne")
+        await interaction.response.send_message("🔴 Serveur hors ligne")
+
+
+@tree.command(name="joueurs", description="Affiche le nombre de joueurs connectés")
+async def joueurs(interaction: discord.Interaction):
+    online, players, max_players = get_status()
+
+    if online:
+        await interaction.response.send_message(
+            f"👥 {players}/{max_players} joueurs"
+        )
+    else:
+        await interaction.response.send_message("🔴 Serveur hors ligne")
 
 
 bot.run(TOKEN)
+
 
 
