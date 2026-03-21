@@ -37,14 +37,14 @@ async def on_ready():
     update_status.start()
 
 
-@tasks.loop(seconds=60)
+@tasks.loop(seconds=200)
 async def update_status():
     global message_id
 
     # Vérifier que le salon est accessible
     channel = bot.get_channel(CHANNEL_ID)
     if channel is None:
-        print("Salon introuvable, nouvelle tentative dans 60s…")
+        print("Salon introuvable, nouvelle tentative dans 200s…")
         return
 
     online, players, max_players = get_status()
