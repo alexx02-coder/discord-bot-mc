@@ -6,6 +6,9 @@ import os
 
 keep_alive()
 TOKEN = os.environ["TOKEN"]
+TOKEN = os.getenv("TOKEN")
+if TOKEN is None:
+    raise RuntimeError("TOKEN manquant dans les variables d'environnement")
 SERVER_IP = "Mys_Team.aternos.me"
 CHANNEL_ID = 1484083970726691017
 
