@@ -28,16 +28,25 @@ def get_status():
     try:
         server = JavaServer.lookup(SERVER_IP)
 
-        # Test rapide : ping
-        latency = server.ping()
+        # Ping rapide avec timeout 1 seconde
+        try:
+            latency = server.ping(timeout=1)
+        except:
+            # Le serveur ne répond pas assez vite → état intermédiaire
+            return "transition", 0, 0
 
-        # Status complet
-        status = server.status()
-        return True, status.players.online, status.players.max
+        # Si le ping passe → on tente le status
+        try:
+            status = server.status()
+            return True, status.players.online, status.players.max
+        except:
+            # Ping OK mais status KO → serveur en démarrage / lag
+            return "transition", 0, 0
 
     except Exception as e:
         print("Erreur get_status :", e)
         return False, 0, 0
+
 
 
 @bot.event
@@ -59,21 +68,26 @@ async def update_status():
 
     online, players, max_players = get_status()
 
-    if online:
-        content = f"🟢 Serveur en ligne\n👥 {players}/{max_players} joueurs"
-    else:
-        content = "🔴 Serveur hors ligne"
+if online is True:
+    content = f"🟢 Serveur en ligne\n👥 {players}/{max_players} joueurs"
+elif online == "transition":
+    content = "🟡 Serveur en transition… (lag / démarrage)"
+else:
+    content = "🔴 Serveur hors ligne"
+
 
     # 🔔 Détection changement d'état
     if last_state is None:
         last_state = online
     else:
-        if online != last_state:
-            if online:
-                await channel.send("🟢 **Le serveur vient de s'allumer !**")
-            else:
-                await channel.send("🔴 **Le serveur vient de s'éteindre !**")
-            last_state = online
+       if online != last_state:
+    if online is True:
+        await channel.send("🟢 **Le serveur vient de s'allumer !**")
+    elif online is False:
+        await channel.send("🔴 **Le serveur vient de s'éteindre !**")
+    # Pas d’alerte pour l’état “transition”
+    last_state = online
+
 
     # Gestion du message principal
     if message_id is None:
@@ -107,12 +121,15 @@ async def serveur(interaction: discord.Interaction):
 
     online, players, max_players = get_status()
 
-    if online:
-        await interaction.followup.send(
-            f"🟢 Serveur en ligne\n👥 {players}/{max_players} joueurs"
-        )
-    else:
-        await interaction.followup.send("🔴 Serveur hors ligne")
+  if online is True:
+    await interaction.followup.send(
+        f"🟢 Serveur en ligne\n👥 {players}/{max_players} joueurs"
+    )
+elif online == "transition":
+    await interaction.followup.send("🟡 Serveur en transition… (lag / démarrage)")
+else:
+    await interaction.followup.send("🔴 Serveur hors ligne")
+
 
 
 @tree.command(name="joueurs", description="Affiche le nombre de joueurs connectés")
@@ -121,12 +138,15 @@ async def joueurs(interaction: discord.Interaction):
 
     online, players, max_players = get_status()
 
-    if online:
-        await interaction.followup.send(
-            f"👥 {players}/{max_players} joueurs"
-        )
-    else:
-        await interaction.followup.send("🔴 Serveur hors ligne")
+   if online is True:
+    await interaction.followup.send(
+        f"🟢 Serveur en ligne\n👥 {players}/{max_players} joueurs"
+    )
+elif online == "transition":
+    await interaction.followup.send("🟡 Serveur en transition… (lag / démarrage)")
+else:
+    await interaction.followup.send("🔴 Serveur hors ligne")
+
 
 
 bot.run(TOKEN)
