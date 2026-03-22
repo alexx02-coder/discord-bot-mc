@@ -103,26 +103,32 @@ async def update_status():
 
 @tree.command(name="serveur", description="Affiche l'état du serveur Minecraft")
 async def serveur(interaction: discord.Interaction):
+    # Réponse immédiate pour éviter l'erreur 10062
+    await interaction.response.defer()
+
     online, players, max_players = get_status()
 
     if online:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"🟢 Serveur en ligne\n👥 {players}/{max_players} joueurs"
         )
     else:
-        await interaction.response.send_message("🔴 Serveur hors ligne")
+        await interaction.followup.send("🔴 Serveur hors ligne")
 
 
 @tree.command(name="joueurs", description="Affiche le nombre de joueurs connectés")
 async def joueurs(interaction: discord.Interaction):
+    # Réponse immédiate
+    await interaction.response.defer()
+
     online, players, max_players = get_status()
 
     if online:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"👥 {players}/{max_players} joueurs"
         )
     else:
-        await interaction.response.send_message("🔴 Serveur hors ligne")
+        await interaction.followup.send("🔴 Serveur hors ligne")
 
 
 bot.run(TOKEN)
