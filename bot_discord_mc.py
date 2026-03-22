@@ -24,28 +24,46 @@ message_id = None
 last_state = None  # Pour les alertes
 
 
+import concurrent.futures
+
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+def safe_ping(server):
+    try:
+        return server.ping()
+    except:
+        return None
+
+def safe_status(server):
+    try:
+        return server.status()
+    except:
+        return None
+
 def get_status():
     try:
         server = JavaServer.lookup(SERVER_IP)
 
-        # Ping rapide avec timeout 1 seconde
-        try:
-            latency = server.ping(timeout=1)
-        except:
-            # Le serveur ne répond pas assez vite → état intermédiaire
+        # Ping dans un thread séparé (timeout 1 seconde)
+        future_ping = executor.submit(safe_ping, server)
+        latency = future_ping.result(timeout=1)
+
+        if latency is None:
             return "transition", 0, 0
 
-        # Si le ping passe → on tente le status
-        try:
-            status = server.status()
-            return True, status.players.online, status.players.max
-        except:
-            # Ping OK mais status KO → serveur en démarrage / lag
+        # Status dans un thread séparé (timeout 1 seconde)
+        future_status = executor.submit(safe_status, server)
+        status = future_status.result(timeout=1)
+
+        if status is None:
             return "transition", 0, 0
+
+        return True, status.players.online, status.players.max
 
     except Exception as e:
         print("Erreur get_status :", e)
         return False, 0, 0
+
 
 
 
