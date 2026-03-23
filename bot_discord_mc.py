@@ -72,7 +72,7 @@ async def on_ready():
     update_status.start()
 
 
-@tasks.loop(seconds=120)
+@tasks.loop(seconds=750)
 async def update_status():
     global message_id, last_state
 
